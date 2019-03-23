@@ -14,17 +14,13 @@ static char *__rkjointtypename[] = {
   NULL
 };
 
-/* rkJointTypeExpr
- * - convert joint type to string.
- */
+/* convert joint type to a string. */
 char *rkJointTypeExpr(byte type)
 {
   return __rkjointtypename[zLimit(type,RK_JOINT_FIXED,RK_JOINT_BRFLOAT)];
 }
 
-/* rkJointTypeFromStr
- * - convert string to joint type.
- */
+/* convert a string to joint type. */
 byte rkJointTypeFromStr(char *str)
 {
   char **jp;
@@ -51,18 +47,16 @@ static rkJoint *(* rk_joint_create[])(rkJoint*) = {
   rkJointCreateBrFloat,
 };
 
-/* rkJointCreate
- * - create joint object.
- */
+/* create a joint object. */
 rkJoint *rkJointCreate(rkJoint *j, byte type)
 {
   if( type < RK_JOINT_FIXED || type > RK_JOINT_BRFLOAT ){
-    ZRUNERROR( "invalid joint type specified - %d", type );
+    ZRUNERROR( RK_ERR_JOINT_INVTYPE, type );
     return NULL;
   }
   rkJointInit( j );
   if( !rk_joint_create[( (j)->type = type )]( j ) ){
-    ZRUNERROR( "cannot create joint instance" );
+    ZRUNERROR( RK_ERR_JOINT_FAILED );
     rkJointDestroy( j );
     return NULL;
   }
@@ -70,27 +64,21 @@ rkJoint *rkJointCreate(rkJoint *j, byte type)
   return j;
 }
 
-/* rkJointDestroy
- * - destroy joint object.
- */
+/* destroy a joint object. */
 void rkJointDestroy(rkJoint *j)
 {
   zFree( j->prp );
   rkJointInit( j );
 }
 
-/* rkJointNeutral
- * - neutralize joint displacement.
- */
+/* neutralize joint displacement. */
 void rkJointNeutral(rkJoint *j)
 {
   double dis[] = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
   rkJointSetDis( j, dis );
 }
 
-/* rkJointIsNeutral
- * - check if joint displacement is neutral.
- */
+/* check if joint displacement is neutral. */
 bool rkJointIsNeutral(rkJoint *j)
 {
   double dis[6];
@@ -102,9 +90,7 @@ bool rkJointIsNeutral(rkJoint *j)
   return true;
 }
 
-/* rkJointClone
- * - clone a joint .
- */
+/* clone a joint. */
 rkJoint *rkJointClone(rkJoint *org, rkJoint *cln)
 {
   rkMotor *morg, *mcln;
@@ -124,9 +110,7 @@ rkJoint *rkJointClone(rkJoint *org, rkJoint *cln)
   return cln;
 }
 
-/* rkJointCopyState
- * - copy joint state.
- */
+/* copy joint state. */
 rkJoint *rkJointCopyState(rkJoint *src, rkJoint *dst)
 {
   double val[6];
@@ -138,9 +122,7 @@ rkJoint *rkJointCopyState(rkJoint *src, rkJoint *dst)
   return dst;
 }
 
-/* rkJointIncRate
- * - increment motion rate due to the joint rate.
- */
+/* increment motion rate due to joint rate. */
 void rkJointIncRate(rkJoint *j, zVec3D *w, zVec6D *vel, zVec6D *acc)
 {
   rkJointIncVel( j, vel );
@@ -172,7 +154,7 @@ double rkJointTorsionDisRevol(zFrame3D *dev, zVec6D *t)
   angle = atan2( l, zFrame3DAtt(dev)->e[2][2] );
   zIsTiny( angle ) ?
     zVec3DClear( &aa ) : zVec3DMulDRC( &aa, angle/l );
-  zMulMatTVec3D( zFrame3DAtt(dev), &aa, zVec6DAng(t) );
+  zMulMat3DTVec3D( zFrame3DAtt(dev), &aa, zVec6DAng(t) );
   /* intermediate attitude */
   zMat3DFromAA( &rm, &aa );
   /* joint displacement */
@@ -185,7 +167,7 @@ double rkJointTorsionDisPrism(zFrame3D *dev, zVec6D *t)
 {
   double q;
 
-  zMulMatTVec3D( zFrame3DAtt(dev), zFrame3DPos(dev), zVec6DLin(t) );
+  zMulMat3DTVec3D( zFrame3DAtt(dev), zFrame3DPos(dev), zVec6DLin(t) );
   /* joint displacement */
   q = t->e[zZ];
   t->e[zZ] = 0;
@@ -197,30 +179,21 @@ zMat6D *rkJointXferMat6D(zFrame3D *f, zMat6D *i, zMat6D *m)
 {
   zMat3D tmpm, tmpm2;
 
-  zMulMatMat3D( zFrame3DAtt( f ), zMat6DMat3D( i, 0, 0 ), zMat6DMat3D( m, 0, 0 ) );
-  zMulMatMatT3DDRC( zMat6DMat3D( m, 0, 0 ), zFrame3DAtt( f ) );
-  zMulMatMat3D( zFrame3DAtt( f ), zMat6DMat3D( i, 1, 0 ), zMat6DMat3D( m, 1, 0 ) );
-  zMulMatMatT3DDRC( zMat6DMat3D( m, 1, 0 ), zFrame3DAtt( f ) );
-  zMulMatMat3D( zFrame3DAtt( f ), zMat6DMat3D( i, 1, 1 ), zMat6DMat3D( m, 1, 1 ) );
-  zMulMatMatT3DDRC( zMat6DMat3D( m, 1, 1 ), zFrame3DAtt( f ) );
+  zRotMat3D( zFrame3DAtt(f), &i->e[0][0], &m->e[0][0] );
+  zRotMat3D( zFrame3DAtt(f), &i->e[0][1], &m->e[0][1] );
+  zRotMat3D( zFrame3DAtt(f), &i->e[1][1], &m->e[1][1] );
 
-  zMulVecOPMat3D( zFrame3DPos( f ), zMat6DMat3D( m, 0, 0 ), &tmpm );
-  zMat3DT( zMat6DMat3D( m, 1, 0 ), &tmpm2 );
-  zMat3DAddDRC( zMat6DMat3D( m, 1, 0 ), &tmpm );
-  zMat3DT( zMat6DMat3D( m, 1, 0 ), zMat6DMat3D( m, 0, 1 ) );
-  zMulVecOPMat3D( zFrame3DPos( f ), zMat6DMat3D( m, 0, 1 ), &tmpm );
-  zMat3DAddDRC( zMat6DMat3D( m, 1, 1 ), &tmpm );
-  zMulVecOPMat3D( zFrame3DPos( f ), &tmpm2, &tmpm );
+  zMulVec3DOPMat3D( zFrame3DPos(f), &m->e[0][0], &tmpm );
+  zMat3DT( &m->e[0][1], &tmpm2 );
+  zMat3DAddDRC( &m->e[0][1], &tmpm );
+  zMat3DT( &m->e[0][1], &m->e[1][0] );
+  zMulVec3DOPMat3D( zFrame3DPos(f), &m->e[1][0], &tmpm );
+  zMat3DAddDRC( &m->e[1][1], &tmpm );
+  zMulVec3DOPMat3D( zFrame3DPos(f), &tmpm2, &tmpm );
   zMat3DT( &tmpm, &tmpm );
-  zMat3DAddDRC( zMat6DMat3D( m, 1, 1 ), &tmpm );
+  zMat3DAddDRC( &m->e[1][1], &tmpm );
   return m;
 }
-
-/* void _rkJointUpdateWrench(void *prp, zMat6D *i, zVec6D *b, zVec6D *acc, zVec6D *w) */
-/* { */
-/*   zMulMat6DVec6D( i, acc, w ); */
-/*   zVec6DAddDRC( w, b ); */
-/* } */
 
 void _rkJointUpdateWrench(rkJoint *j, zMat6D *i, zVec6D *b, zVec6D *acc)
 {

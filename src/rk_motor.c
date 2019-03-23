@@ -43,12 +43,12 @@ static rkMotor *(* rk_motor_create[])(rkMotor*) = {
 rkMotor *rkMotorCreate(rkMotor *m, byte type)
 {
   if( type < RK_MOTOR_NONE || type > RK_MOTOR_DC ){
-    ZRUNERROR( "invalid motor type specified - %d", type );
+    ZRUNERROR( RK_ERR_MOTOR_INVTYPE, type );
     return NULL;
   }
   rkMotorInit( m );
   if( !rk_motor_create[( m->type = type )]( m ) ){
-    ZRUNERROR( "cannot create motor instance" );
+    ZRUNERROR( RK_ERR_MOTOR_FAILED );
     rkMotorDestroy( m );
     return NULL;
   }
@@ -84,20 +84,20 @@ void rkMotorFWrite(FILE *fp, rkMotor *m)
 
 rkMotorArray *rkMotorArrayClone(rkMotorArray *org)
 {
-	rkMotorArray *cln;
-	register int i;
+  rkMotorArray *cln;
+  register int i;
 
-	 if( !( cln = zAlloc( rkMotorArray, 1 ) ) ){
+  if( !( cln = zAlloc( rkMotorArray, 1 ) ) ){
     ZALLOCERROR();
     return NULL;
   }
-	 zArrayAlloc( cln, rkMotor, zArrayNum(org) );
-  if( zArrayNum(cln) != zArrayNum(org) ) return NULL;
-  for( i=0; i<zArrayNum(cln); i++ ){
-		rkMotorType(zArrayElem(cln,i)) = RK_MOTOR_NONE;
-    if( !rkMotorClone( zArrayElem(org,i), zArrayElem(cln,i) ) )
+  zArrayAlloc( cln, rkMotor, zArraySize(org) );
+  if( zArraySize(cln) != zArraySize(org) ) return NULL;
+  for( i=0; i<zArraySize(cln); i++ ){
+    rkMotorType(zArrayElemNC(cln,i)) = RK_MOTOR_NONE;
+    if( !rkMotorClone( zArrayElemNC(org,i), zArrayElemNC(cln,i) ) )
       return NULL;
-	}
+  }
   return cln;
 }
 
@@ -110,7 +110,7 @@ rkMotorArray *_rkMotorArrayFAlloc(FILE *fp, rkMotorArray *m)
   zArrayAlloc( m, rkMotor, n );
   if( n > 0 && !zArrayBuf(m) ) return NULL;
   for( i=0; i<n; i++ )
-    rkMotorInit( zArrayElem(m,i) );
+    rkMotorInit( zArrayElemNC(m,i) );
   return m;
 }
 
@@ -128,11 +128,11 @@ bool __rkMotorArrayMotorFRead(FILE *fp, void *instance, char *buf, bool *success
   if( strcmp( buf, "name" ) == 0 ){
     if( strlen( zFToken( fp, buf, BUFSIZ ) ) >= BUFSIZ ){
       buf[BUFSIZ-1] = '\0';
-      ZRUNWARN( "too long motor name, truncated to %s", buf );
+      ZRUNWARN( RK_WARN_TOOLNG_NAME, buf );
     }
-    zNameFind( zArrayBuf(prm->marray), zArrayNum(prm->marray), buf, cm );
+    zNameFind( zArrayBuf(prm->marray), zArraySize(prm->marray), buf, cm );
     if( cm ){
-      ZRUNERROR( "twofolded motor %s exists", buf );
+      ZRUNERROR( RK_WARN_TWOFOLDNAME, buf );
       return false;
     }
     if( !( zNameSet( prm->m, buf ) ) ){
@@ -152,15 +152,15 @@ rkMotorArray *_rkMotorArrayMotorFRead(FILE *fp, rkMotorArray *marray, int i)
 {
   _rkMotorArrayMotorParam prm;
 
-  if( i >= zArrayNum(marray) ){
-    ZRUNERROR( "motor identifier out of range %d/%d", i, zArrayNum(marray) );
+  if( i >= zArraySize(marray) ){
+    ZRUNERROR( RK_ERR_MOTOR_OUTOFRANGE, i, zArraySize(marray) );
     return NULL;
   }
-  prm.m = zArrayElem(marray,i);
+  prm.m = zArrayElemNC(marray,i);
   prm.marray = marray;
   if( !zFieldFRead( fp, __rkMotorArrayMotorFRead, &prm ) ) return NULL;
   if( !zNamePtr( prm.m ) ){
-    ZRUNERROR( "unnamed motor exists" );
+    ZRUNERROR( RK_ERR_MOTOR_UNNAMED );
     return NULL;
   }
   return marray;
@@ -202,8 +202,8 @@ void rkMotorArrayFWrite(FILE *fp, rkMotorArray *m)
 {
   register int i;
 
-  for( i=0; i<zArrayNum(m); i++ ){
+  for( i=0; i<zArraySize(m); i++ ){
     fprintf( fp, "[%s]\n", RK_MOTOR_TAG );
-    rkMotorFWrite( fp, zArrayElem(m,i) );
+    rkMotorFWrite( fp, zArrayElemNC(m,i) );
   }
 }
