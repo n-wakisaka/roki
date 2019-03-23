@@ -20,9 +20,6 @@ void _rkLinkABIInitInertia(rkLink *link)
   ap = rkLinkABIPrp(link);
   zMat3DCreate( &ap->m.e[0][0], rkLinkMass(link), 0, 0, 0, rkLinkMass(link), 0, 0, 0, rkLinkMass(link) );
   zVec3DMul( rkLinkCOM(link), rkLinkMass(link), &pc );
-  /* zVec3DOuterProd2Mat3D( &pc, &ap->m.e[1][0] ); */
-  /* zMat3DRev( &ap->m.e[1][0], &ap->m.e[0][1] ); */
-  /* debug */
   zVec3DOuterProd2Mat3D( &pc, &ap->m.e[0][1] );
   zMat3DRev( &ap->m.e[0][1], &ap->m.e[1][0] );
   zVec3DTripleProd2Mat3D( &pc, rkLinkCOM(link), &mpcross2 );
@@ -80,7 +77,7 @@ void rkLinkABIUpdateInit(rkLink *link, zVec6D *pvel)
   /*b*/
   zVec3DTripleProd( rkLinkAngVel(link), rkLinkAngVel(link), rkLinkCOM(link), &tempv);
   zVec3DMul( &tempv, rkLinkMass(link), zVec6DLin(&ap->f) );
-  zMulMatVec3D( zMat6DMat3D(&ap->i,1,1), rkLinkAngVel(link), &tempv );
+  zMulMat3DVec3D( &ap->i.e[1][1], rkLinkAngVel(link), &tempv );
   zVec3DOuterProd( rkLinkAngVel(link), &tempv, zVec6DAng(&ap->f) );
   zVec6DCopy( &ap->f, &ap->b );
 
@@ -89,7 +86,7 @@ void rkLinkABIUpdateInit(rkLink *link, zVec6D *pvel)
   rkLinkCalcExtWrench( link, &ap->w0 );       /* external forces */
   zVec3DCreate( &tempv,                  /* gravity force */
                 0, 0, -RK_G * rkLinkMass(link) );
-  zMulMatTVec3DDRC( rkLinkWldAtt(link), &tempv );
+  zMulMat3DTVec3DDRC( rkLinkWldAtt(link), &tempv );
   zVec3DAddDRC( zVec6DLin(&ap->w0), &tempv );
   zVec3DOuterProd( rkLinkCOM(link), &tempv, &tempv );
   zVec3DAddDRC( zVec6DAng(&ap->w0), &tempv );
@@ -97,10 +94,10 @@ void rkLinkABIUpdateInit(rkLink *link, zVec6D *pvel)
 
   /*c*/
   zVec6DClear( &ap->c );
-  zMulMatTVec3D( rkLinkAdjAtt(link), zVec6DAng(pvel), &tempv );
+  zMulMat3DTVec3D( rkLinkAdjAtt(link), zVec6DAng(pvel), &tempv );
   rkJointIncAccOnVel( rkLinkJoint(link), &tempv, &ap->c );
   zVec3DTripleProd( zVec6DAng(pvel), zVec6DAng(pvel), rkLinkAdjPos(link), &tempv );
-  zMulMatTVec3DDRC( rkLinkAdjAtt(link), &tempv );
+  zMulMat3DTVec3DDRC( rkLinkAdjAtt(link), &tempv );
   zVec3DAddDRC( zVec6DLin(&ap->c), &tempv );
 }
 
@@ -165,13 +162,13 @@ void _rkLinkABIUpdateForward(rkLink *link, zVec6D *pa)
   zVec3DOuterProd( zVec6DAng( pa ), rkLinkAdjPos( link ), zVec6DLin( &jac ) );
   zVec3DAddDRC( zVec6DLin( &jac ), zVec6DLin( pa ) );
   zVec3DCopy( zVec6DAng( pa ), zVec6DAng( &jac ) );
-  zMulMatTVec6DDRC( rkLinkAdjAtt( link ), &jac );
+  zMulMat3DTVec6DDRC( rkLinkAdjAtt( link ), &jac );
 
   zVec6DAddDRC( &jac, &ap->c );
 
   /* q, acc update */
   if( rkLinkJointType(link) >= RK_JOINT_SPHER ){
-    zMulMatTMat3D(rkLinkOrgAtt(link), rkLinkAdjAtt(link), &att);
+    zMulMat3DTMat3D(rkLinkOrgAtt(link), rkLinkAdjAtt(link), &att);
     rkJointABIQAcc( rkLinkJoint(link), &att, &ap->i, &ap->b, &jac, ap->iaxi, rkLinkAcc(link) );
   } else
     rkJointABIQAcc( rkLinkJoint(link), NULL, &ap->i, &ap->b, &jac, ap->iaxi, rkLinkAcc(link) );

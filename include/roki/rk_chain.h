@@ -32,9 +32,9 @@ typedef struct{
   bool _iscol;
 } rkChain;
 
-#define rkChainNum(c)              zArrayNum( &(c)->link )
+#define rkChainNum(c)              zArraySize( &(c)->link )
 #define rkChainRoot(c)             zArrayBuf( &(c)->link )
-#define rkChainLink(c,i)           zArrayElem( &(c)->link, i )
+#define rkChainLink(c,i)           zArrayElemNC( &(c)->link, i )
 #define rkChainShape(c)            (c)->shape
 #define rkChainMotor(c)            (c)->motor
 #define rkChainMass(c)             (c)->mass
@@ -416,9 +416,6 @@ __EXPORT void rkChainSetOffset(rkChain *c);
  * returned.
  */
 __EXPORT zVec3DList *rkChain2VertList(rkChain *chain, zVec3DList *vl);
-
-#define RK_CHAIN_SUFFIX "zkc"
-#define RK_CHAIN_INIT_SUFFIX "zkci"
 
 __EXPORT bool rkChainReadFile(rkChain *c, char filename[]);
 __EXPORT rkChain *rkChainFRead(FILE *fp, rkChain *c);

@@ -26,11 +26,17 @@ void rk_mpUsage(void)
 bool rk_mpInitFK(rkChain *chain)
 {
   zVec v;
+  FILE *fp;
 
-  if( !( v = zVecReadFile( option[RK_MP_VFILE].arg ) ) ){
+  if( !( fp = fopen( option[RK_MP_VFILE].arg, "r" ) ) ){
+    ZOPENERROR( option[RK_MP_VFILE].arg );
+    return false;
+  }
+  if( !( v = zVecFRead( fp ) ) ){
     ZALLOCERROR();
     return false;
   }
+  fclose( fp );
   rkChainFK( chain, v );
   zVecFree( v );
   return true;
@@ -91,9 +97,9 @@ zIndex rk_mpLinkList(rkChain *chain)
   if( !( index = zIndexCreate( zListNum(&list) ) ) )
     ZALLOCERROR();
   else
-    for( cp=zListTail(&list), i=0; i<zArrayNum(index);
+    for( cp=zListTail(&list), i=0; i<zArraySize(index);
          i++, cp=zListCellNext(cp) )
-      zIndexSetElem( index, i, cp->data );
+      zIndexSetElemNC( index, i, cp->data );
   zListDestroy( int_list_cell_t, &list );
   return index;
 }
@@ -135,8 +141,8 @@ void rk_mpCalc(rkChain *chain, zIndex index, rkMP *mp)
   zVec3DClear( rkMPCOM(mp) );
   zMat3DClear( rkMPInertia(mp) );
 
-  for( i=0; i<zArrayNum(index); i++ ){
-    l = rkChainLink( chain, zIndexElem(index,i) );
+  for( i=0; i<zArraySize(index); i++ ){
+    l = rkChainLink( chain, zIndexElemNC(index,i) );
     /* mass */
     rkMPMass(mp) += rkLinkMass(l);
     /* COM */
