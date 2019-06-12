@@ -1,6 +1,10 @@
 RoKi - Robot Kinetics library
 Copyright (C) 1998 Tomomichi Sugihara (Zhidao)
 
+| *master* | *develop* |
+|----------|-----------|
+| [![Build Status](https://travis-ci.org/n-wakisaka/roki.svg?branch=master)](https://travis-ci.org/n-wakisaka/roki) | [![Build Status](https://travis-ci.org/n-wakisaka/roki.svg?branch=develop)](https://travis-ci.org/n-wakisaka/roki)
+
 -----------------------------------------------------------------
 [What is this?]
 
