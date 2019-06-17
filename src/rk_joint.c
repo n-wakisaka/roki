@@ -153,7 +153,7 @@ double rkJointTorsionDisRevol(zFrame3D *dev, zVec6D *t)
   l = sqrt( zSqr(aa.e[zX]) + zSqr(aa.e[zY]) );
   angle = atan2( l, zFrame3DAtt(dev)->e[2][2] );
   zIsTiny( angle ) ?
-    zVec3DClear( &aa ) : zVec3DMulDRC( &aa, angle/l );
+    zVec3DZero( &aa ) : zVec3DMulDRC( &aa, angle/l );
   zMulMat3DTVec3D( zFrame3DAtt(dev), &aa, zVec6DAng(t) );
   /* intermediate attitude */
   zMat3DFromAA( &rm, &aa );
@@ -175,7 +175,7 @@ double rkJointTorsionDisPrism(zFrame3D *dev, zVec6D *t)
 }
 
 /* for ABI */
-zMat6D *rkJointXferMat6D(zFrame3D *f, zMat6D *i, zMat6D *m)
+zMat6D *rkJointXformMat6D(zFrame3D *f, zMat6D *i, zMat6D *m)
 {
   zMat3D tmpm, tmpm2;
 

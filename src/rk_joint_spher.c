@@ -20,7 +20,7 @@ static void _rkJointCatDisSpher(void *prp, double *dis, double k, double *val);
 static void _rkJointSubDisSpher(void *prp, double *dis, double *sdis);
 static void _rkJointSetDisCNTSpher(void *prp, double *val, double dt);
 
-static zFrame3D *_rkJointXferSpher(void *prp, zFrame3D *fo, zFrame3D *f);
+static zFrame3D *_rkJointXformSpher(void *prp, zFrame3D *fo, zFrame3D *f);
 static void _rkJointIncVelSpher(void *prp, zVec6D *vel);
 static void _rkJointIncAccOnVelSpher(void *prp, zVec3D *w, zVec6D *acc);
 static void _rkJointIncAccSpher(void *prp, zVec6D *acc);
@@ -122,15 +122,15 @@ void _rkJointSetDisCNTSpher(void *prp, double *val, double dt)
   zVec3DDif( &v_old, &_rkc(prp)->vel, dt, &_rkc(prp)->acc );
 }
 
-/* joint frame transfer function */
-zFrame3D *_rkJointXferSpher(void *prp, zFrame3D *fo, zFrame3D *f)
+/* joint frame transformation */
+zFrame3D *_rkJointXformSpher(void *prp, zFrame3D *fo, zFrame3D *f)
 {
   zVec3DCopy( zFrame3DPos(fo), zFrame3DPos(f) );
   zMulMat3DMat3D( zFrame3DAtt(fo), &_rkc(prp)->_att, zFrame3DAtt(f) );
   return f;
 }
 
-/* joint velocity transfer function */
+/* joint velocity transformation */
 void _rkJointIncVelSpher(void *prp, zVec6D *vel)
 {
   zVec3D cw;
@@ -148,7 +148,7 @@ void _rkJointIncAccOnVelSpher(void *prp, zVec3D *w, zVec6D *acc)
   zVec3DAddDRC( zVec6DAng(acc), &cw );
 }
 
-/* joint acceleration transfer function */
+/* joint acceleration transformation */
 void _rkJointIncAccSpher(void *prp, zVec6D *acc)
 {
   zVec3D cw;
@@ -157,7 +157,7 @@ void _rkJointIncAccSpher(void *prp, zVec6D *acc)
   zVec3DAddDRC( zVec6DAng(acc), &cw );
 }
 
-/* joint torque transfer function */
+/* joint torque transformation */
 void _rkJointCalcTrqSpher(void *prp, zVec6D *f)
 {
   zMulMat3DVec3D( &_rkc(prp)->_att, zVec6DAng(f), &_rkc(prp)->trq );
@@ -167,7 +167,7 @@ void _rkJointCalcTrqSpher(void *prp, zVec6D *f)
 void _rkJointTorsionSpher(zFrame3D *dev, zVec6D *t, double dis[])
 {
   zMulMat3DTVec3D( zFrame3DAtt(dev), zFrame3DPos(dev), zVec6DLin(t) );
-  zVec3DClear( zVec6DAng(t) );
+  zVec3DZero( zVec6DAng(t) );
   zMat3DToAA( zFrame3DAtt(dev), (zVec3D*)dis );
 }
 
@@ -254,7 +254,7 @@ static rkJointCom rk_joint_spher = {
   _rkJointCatDisSpher,
   _rkJointSubDisSpher,
   _rkJointSetDisCNTSpher,
-  _rkJointXferSpher,
+  _rkJointXformSpher,
   _rkJointIncVelSpher,
   _rkJointIncAccOnVelSpher,
   _rkJointIncAccSpher,
@@ -287,19 +287,19 @@ void _rkJointMotorSetInputSpher(void *prp, double *val){
   rkMotorSetInput( &_rkc(prp)->m, val );
 }
 void _rkJointMotorInertiaSpher(void *prp, double *val){
-  zMat3DClear( (zMat3D *)val );
+  zMat3DZero( (zMat3D *)val );
   rkMotorInertia( &_rkc(prp)->m, val );
 }
 void _rkJointMotorInputTrqSpher(void *prp, double *val){
-  zVec3DClear( (zVec3D *)val );
+  zVec3DZero( (zVec3D *)val );
   rkMotorInputTrq( &_rkc(prp)->m, val );
 }
 void _rkJointMotorResistanceSpher(void *prp, double *val){
-  zVec3DClear( (zVec3D *)val );
+  zVec3DZero( (zVec3D *)val );
   rkMotorRegistance( &_rkc(prp)->m, &_rkc(prp)->aa.e[zX], &_rkc(prp)->vel.e[zX], val );
 }
 void _rkJointMotorDrivingTrqSpher(void *prp, double *val){
-  zVec3DClear( (zVec3D *)val );
+  zVec3DZero( (zVec3D *)val );
   rkMotorDrivingTrq( &_rkc(prp)->m, &_rkc(prp)->aa.e[zX], &_rkc(prp)->vel.e[zX], &_rkc(prp)->acc.e[zX], val );
 }
 

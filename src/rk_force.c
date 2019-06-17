@@ -21,8 +21,8 @@ rkWrench *rkWrenchListPop(rkWrenchList *wl)
   return cell;
 }
 
-/* transform a wrench. */
-zVec6D *rkWrenchXfer(rkWrench *cell, zVec6D *w)
+/* shift a wrench. */
+zVec6D *rkWrenchShift(rkWrench *cell, zVec6D *w)
 {
   return zVec6DAngShift( rkWrenchW(cell), rkWrenchPos(cell), w );
 }
@@ -33,9 +33,9 @@ zVec6D *rkWrenchListNet(rkWrenchList *list, zVec6D *w)
   rkWrench *cell;
   zVec6D n;
 
-  zVec6DClear( w );
+  zVec6DZero( w );
   zListForEach( list, cell ){
-    rkWrenchXfer( cell, &n );
+    rkWrenchShift( cell, &n );
     zVec6DAddDRC( w, &n );
   }
   return w;
