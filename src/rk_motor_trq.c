@@ -7,44 +7,42 @@
 
 #include <roki/rk_motor.h>
 
-static void _rkMotorSetInputTRQ(void *prp, double *val);
+#define _rkc(p) ((rkMotorPrpTrq *)p)
 
-static void _rkMotorInertiaTRQ(void *prp, double *val);
-static void _rkMotorInputTrqTRQ(void *prp, double *val);
-static void _rkMotorRegistanceTRQ(void *prp, double *dis, double *vel, double *val);
-static void _rkMotorDrivingTrqTRQ(void *prp, double *dis, double *vel, double *acc, double *val);
+static void _rkMotorInitTrq(void *prp)
+{
+  _rkc(prp)->input = 0.0;
+  _rkc(prp)->min = -HUGE_VAL;
+  _rkc(prp)->max = HUGE_VAL;
+}
 
-static void _rkMotorStateCopyTRQ(void *src, void *dst);
+static void *_rkMotorAllocTrq(void){ return zAlloc( rkMotorPrpTrq, 1 ); }
 
-static bool _rkMotorQueryFScanTRQ(FILE *fp, char *key, void *prp);
-static void _rkMotorFPrintTRQ(FILE *fp, void *prp);
+static void _rkMotorCopyTrq(void *src, void *dst){
+  memcpy( dst, src, sizeof(rkMotorPrpTrq) );
+}
 
-#define _rkc(p) ((rkMotorPrpTRQ *)p)
-
-void _rkMotorSetInputTRQ(void *prp, double *val){
+static void _rkMotorSetInputTrq(void *prp, double *val){
   _rkc(prp)->input = zLimit( *val, _rkc(prp)->min, _rkc(prp)->max );
 }
 
-void _rkMotorInertiaTRQ(void *prp, double *val){
+static void _rkMotorInertiaTrq(void *prp, double *val){
   *val = 0.0;
 }
 
-void _rkMotorInputTrqTRQ(void *prp, double *val){
+static void _rkMotorInputTrqTrq(void *prp, double *val){
   *val = _rkc(prp)->input;
 }
 
-void _rkMotorRegistanceTRQ(void *prp, double *dis, double *vel, double *val){
+static void _rkMotorRegistanceTrq(void *prp, double *dis, double *vel, double *val){
   *val = 0.0;
 }
-void _rkMotorDrivingTrqTRQ(void *prp, double *dis, double *vel, double *acc, double *val){
-  _rkMotorInputTrqTRQ( prp, val );
+
+static void _rkMotorDrivingTrqTrq(void *prp, double *dis, double *vel, double *acc, double *val){
+  _rkMotorInputTrqTrq( prp, val );
 }
 
-void _rkMotorStateCopyTRQ(void *src, void *dst){
-  memcpy(dst, src, sizeof(rkMotorPrpTRQ));
-}
-
-bool _rkMotorQueryFScanTRQ(FILE *fp, char *key, void *prp)
+static bool _rkMotorQueryFScanTrq(FILE *fp, char *key, void *prp)
 {
   if( strcmp( key, "max" ) == 0 )
     _rkc(prp)->max = zFDouble( fp );
@@ -55,37 +53,65 @@ bool _rkMotorQueryFScanTRQ(FILE *fp, char *key, void *prp)
   return true;
 }
 
-void _rkMotorFPrintTRQ(FILE *fp, void *prp)
+/* ZTK */
+
+static void *_rkMotorTrqMaxFromZTK(void *prp, int i, void *arg, ZTK *ztk){
+  _rkc(prp)->max = ZTKDouble(ztk);
+  return prp;
+}
+static void *_rkMotorTrqMinFromZTK(void *prp, int i, void *arg, ZTK *ztk){
+  _rkc(prp)->min = ZTKDouble(ztk);
+  return prp;
+}
+
+static void _rkMotorTrqMaxFPrint(FILE *fp, int i, void *prp){
+  fprintf( fp, "%.10g\n", _rkc(prp)->max );
+}
+static void _rkMotorTrqMinFPrint(FILE *fp, int i, void *prp){
+  fprintf( fp, "%.10g\n", _rkc(prp)->min );
+}
+
+static ZTKPrp __ztk_prp_rkmotor_trq[] = {
+  { "max", 1, _rkMotorTrqMaxFromZTK, _rkMotorTrqMaxFPrint },
+  { "min", 1, _rkMotorTrqMinFromZTK, _rkMotorTrqMinFPrint },
+};
+
+static void *_rkMotorFromZTKTrq(void *prp, ZTK *ztk)
+{
+  return ZTKEncodeKey( prp, NULL, ztk, __ztk_prp_rkmotor_trq );
+}
+
+#if 0
+static void _rkMotorFPrintTrq(FILE *fp, void *prp)
 {
   fprintf( fp, "\n" );
 }
+#else
+static void _rkMotorFPrintTrq(FILE *fp, void *prp)
+{
+  ZTKPrpKeyFPrint( fp, prp, __ztk_prp_rkmotor_trq );
+}
+#endif
 
-static rkMotorCom rk_motor_trq = {
+rkMotorCom rk_motor_trq = {
+  "trq",
   1,
-  _rkMotorSetInputTRQ,
-  _rkMotorInertiaTRQ,
-  _rkMotorInputTrqTRQ,
-  _rkMotorRegistanceTRQ,
-  _rkMotorDrivingTrqTRQ,
-  _rkMotorStateCopyTRQ,
-  _rkMotorQueryFScanTRQ,
-  _rkMotorFPrintTRQ,
+  _rkMotorInitTrq,
+  _rkMotorAllocTrq,
+  _rkMotorCopyTrq,
+  _rkMotorSetInputTrq,
+  _rkMotorInertiaTrq,
+  _rkMotorInputTrqTrq,
+  _rkMotorRegistanceTrq,
+  _rkMotorDrivingTrqTrq,
+  _rkMotorQueryFScanTrq,
+  _rkMotorFromZTKTrq,
+  _rkMotorFPrintTrq,
 };
 
-void _rkMotorInitPrpTRQ(void *prp)
+bool rkMotorRegZTKTrq(ZTK *ztk, char *tag)
 {
-  _rkc(prp)->input = 0.0;
-  _rkc(prp)->min = -HUGE_VAL;
-  _rkc(prp)->max = HUGE_VAL;
-}
-
-rkMotor *rkMotorCreateTRQ(rkMotor *m)
-{
-  if( !( m->prp = zAlloc( rkMotorPrpTRQ, 1 ) ) )
-    return NULL;
-  _rkMotorInitPrpTRQ( m->prp );
-  m->com = &rk_motor_trq;
-  return m;
+  return ZTKDefRegPrp( ztk, tag, __ztk_prp_rkmotor_trq );
 }
 
 #undef _rkc

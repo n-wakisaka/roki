@@ -16,7 +16,9 @@ typedef struct{
   double dis, vel, acc, trq;
   double min, max; /* limiter */
   /* joint stiffness, viscosity and coulomb friction */
-  double stiff, viscos, coulomb;
+  double stiffness;
+  double viscosity;
+  double coulomb;
   /* friction */
   double tf;
   /* static friction */
@@ -26,11 +28,13 @@ typedef struct{
   rkMotor m;
 
   /* for forward dynamics */
-  rkJointRef _ref;
+  rkJointFrictionPivot _fp;
   double _u;
 } rkJointPrpPrism;
 
-__EXPORT rkJoint *rkJointCreatePrism(rkJoint *joint);
+extern rkJointCom rk_joint_prism;
+
+__EXPORT bool rkJointRegZTKPrism(ZTK *ztk, char *tag);
 
 __END_DECLS
 
