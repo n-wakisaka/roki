@@ -37,7 +37,9 @@ typedef struct {
   double _comp_l;
 } rkMotorPrpDC;
 
-__EXPORT rkMotor *rkMotorCreateDC(rkMotor *motor);
+extern rkMotorCom rk_motor_dc;
+
+__EXPORT bool rkMotorRegZTKDC(ZTK *ztk, char *tag);
 
 __END_DECLS
 

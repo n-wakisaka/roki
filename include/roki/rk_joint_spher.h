@@ -25,7 +25,9 @@ typedef struct{
   double _u[3];
 } rkJointPrpSpher;
 
-__EXPORT rkJoint *rkJointCreateSpher(rkJoint *joint);
+extern rkJointCom rk_joint_spher;
+
+__EXPORT bool rkJointRegZTKSpher(ZTK *ztk, char *tag);
 
 __END_DECLS
 

@@ -38,19 +38,15 @@ rkCDCell *_rkCDCellCreate(rkCDCell *cell, rkChain *chain, rkLink *link, zShape3D
   cell->data.slide_mode = false;
   cell->data.slide_vel = 0.0;
   /* convert the original shape to a polyhedron */
-  if( zShape3DType(cell->data.shape) != ZSHAPE_PH )
-    if( !zShape3DToPH( cell->data.shape ) ) return NULL;
+  if( !zShape3DToPH( cell->data.shape ) ) return NULL;
   /* create the bounding box of the shape */
-  if( zBox3DDepth(zShape3DBB(cell->data.shape)) == 0 &&
-      zBox3DWidth(zShape3DBB(cell->data.shape)) == 0 &&
-      zBox3DHeight(zShape3DBB(cell->data.shape)) == 0 )
-    zOBB( zShape3DBB(cell->data.shape), zShape3DVertBuf(cell->data.shape), zShape3DVertNum(cell->data.shape) );
+  zOBB( &cell->data.bb, zShape3DVertBuf(cell->data.shape), zShape3DVertNum(cell->data.shape) );
 
   if( !zPH3DClone( zShape3DPH(cell->data.shape), &cell->data.ph ) )
     return NULL;
   zPH3DXform( zShape3DPH(cell->data.shape), rkLinkWldFrame(cell->data.link), &cell->data.ph );
 
-  zBox3DXform( zShape3DBB(cell->data.shape), rkLinkWldFrame(cell->data.link), &cell->data.obb );
+  zBox3DXform( &cell->data.bb, rkLinkWldFrame(cell->data.link), &cell->data.obb );
   zBox3DToAABox3D( &cell->data.obb, &cell->data.aabb );
   return cell;
 }
@@ -82,7 +78,7 @@ void rkCDCellUpdateBB(rkCDCell *cell)
 {
   if( cell->data.type == RK_CD_CELL_STAT ||
       cell->data._bb_update_flag == true ) return;
-  zBox3DXform( zShape3DBB(cell->data.shape), rkLinkWldFrame(cell->data.link), &cell->data.obb );
+  zBox3DXform( &cell->data.bb, rkLinkWldFrame(cell->data.link), &cell->data.obb );
   zBox3DToAABox3D( &cell->data.obb, &cell->data.aabb );
   cell->data._bb_update_flag = true;
 }
@@ -101,7 +97,7 @@ void rkCDCellUpdate(rkCDCell *cell)
 {
   if( cell->data.type == RK_CD_CELL_STAT ) return;
   if( cell->data._bb_update_flag == false ){
-    zBox3DXform( zShape3DBB(cell->data.shape), rkLinkWldFrame(cell->data.link), &cell->data.obb );
+    zBox3DXform( &cell->data.bb, rkLinkWldFrame(cell->data.link), &cell->data.obb );
     zBox3DToAABox3D( &cell->data.obb, &cell->data.aabb );
     cell->data._bb_update_flag = true;
   }
@@ -279,7 +275,7 @@ void rkCDPairPrint(rkCD *cd)
   printf( "number : flag : chain1 link1 shape1 : chain2 link2 shape2\n" );
   zListForEach( &cd->plist, cp ){
     printf( "%d : %s : %s %s %s : %s %s %s\n", i,
-      zBoolExpr(cp->data.is_col),
+      zBoolStr(cp->data.is_col),
         zName(cp->data.cell[0]->data.chain),  zName(cp->data.cell[0]->data.link), zName(cp->data.cell[0]->data.shape),
         zName(cp->data.cell[1]->data.chain),  zName(cp->data.cell[1]->data.link), zName(cp->data.cell[1]->data.shape) );
     i++;
@@ -298,7 +294,7 @@ void rkCDPairVertPrint(rkCD *cd)
   printf( "number : flag : chain1 shape1 : chain2 shape2\n" );
   zListForEach( &cd->plist, cp ){
     printf( "%d : %s : %s %s : %s %s\n", i,
-      zBoolExpr(cp->data.is_col),
+      zBoolStr(cp->data.is_col),
       zName(cp->data.cell[0]->data.chain), zName(cp->data.cell[0]->data.shape),
       zName(cp->data.cell[1]->data.chain), zName(cp->data.cell[1]->data.shape) );
     zListForEach( &cp->data.vlist, v ){
