@@ -11,16 +11,8 @@
  * inverse kinematics class
  * ********************************************************** */
 
-static void _rkIKInit(rkIK *ik);
-static bool _rkIKAllocCMat(rkIK *ik);
-static bool _rkIKAllocJointIndex(rkIK *ik);
-static bool _rkIKJointReg(rkIK *ik, int id, bool sw, double weight);
-static bool _rkIKAllocSRV(rkIK *ik);
-
-static int _rkIKCellEq(rkIK *ik, rkIKCell *cell, int s, int row);
-
 /* initialize inverse kinematics solver. */
-void _rkIKInit(rkIK *ik)
+static void _rkIKInit(rkIK *ik)
 {
   ik->chain = NULL;
   ik->joint_sw = NULL;
@@ -51,10 +43,10 @@ rkIK *rkIKCreate(rkIK *ik, rkChain *chain)
 {
   _rkIKInit( ik );
   ik->chain = chain;
-  ik->joint_sw = zAlloc( bool, rkChainNum(chain) );
-  ik->joint_weight = zAlloc( double, rkChainNum(chain) );
+  ik->joint_sw = zAlloc( bool, rkChainLinkNum(chain) );
+  ik->joint_weight = zAlloc( double, rkChainLinkNum(chain) );
   ik->joint_vel = zVecAlloc( rkChainJointSize(chain) );
-  ik->_j_ofs = zIndexCreate( rkChainNum(chain) );
+  ik->_j_ofs = zIndexCreate( rkChainLinkNum(chain) );
   ik->_c_mat_cell = zMatAlloc( 3, rkChainJointSize(chain) );
   if( !ik->joint_sw || !ik->joint_weight ||
       !ik->joint_vel || !ik->_c_mat_cell ){
@@ -88,12 +80,12 @@ void rkIKDestroy(rkIK *ik)
 }
 
 /* allocate working memory for constraint coefficient matrix of inverse kinematics solver. */
-bool _rkIKAllocCMat(rkIK *ik)
+static bool _rkIKAllocCMat(rkIK *ik)
 {
-  if( zListNum(&ik->clist) == 0 || zArraySize(ik->_j_idx) == 0 )
+  if( zListSize(&ik->clist) == 0 || zArraySize(ik->_j_idx) == 0 )
     return true;
   zMatFree( ik->_c_mat );
-  if( !( ik->_c_mat = zMatAlloc( zListNum(&ik->clist)*3, zVecSizeNC(ik->_j_vel) ) ) ){
+  if( !( ik->_c_mat = zMatAlloc( zListSize(&ik->clist)*3, zVecSizeNC(ik->_j_vel) ) ) ){
     ZALLOCERROR();
     return false;
   }
@@ -101,13 +93,13 @@ bool _rkIKAllocCMat(rkIK *ik)
 }
 
 /* register/unregister a cooperating joint to inverse kinematics solver. */
-bool _rkIKAllocJointIndex(rkIK *ik)
+static bool _rkIKAllocJointIndex(rkIK *ik)
 {
   register int i, j;
   int count, ofs;
   double *wp;
 
-  for( count=0, i=0; i<rkChainNum(ik->chain); i++ ){
+  for( count=0, i=0; i<rkChainLinkNum(ik->chain); i++ ){
     if( rkChainLinkJointSize(ik->chain,i) == 0 )
       ik->joint_sw[i] = false;
     if( ik->joint_sw[i] ) count++;
@@ -118,7 +110,7 @@ bool _rkIKAllocJointIndex(rkIK *ik)
     ZALLOCERROR();
     return false;
   }
-  for( count=0, ofs=0, i=0; i<rkChainNum(ik->chain); i++ )
+  for( count=0, ofs=0, i=0; i<rkChainLinkNum(ik->chain); i++ )
     if( ik->joint_sw[i] ){
       zIndexSetElemNC( ik->_j_idx, count++, i );
       zIndexSetElemNC( ik->_j_ofs, i, ofs );
@@ -141,9 +133,10 @@ bool _rkIKAllocJointIndex(rkIK *ik)
       *wp++ = ik->joint_weight[zIndexElemNC(ik->_j_idx,i)];
   return _rkIKAllocCMat( ik );
 }
-bool _rkIKJointReg(rkIK *ik, int id, bool sw, double weight)
+
+static bool _rkIKJointReg(rkIK *ik, int id, bool sw, double weight)
 {
-  if( id < 0 || id >= rkChainNum(ik->chain) ){
+  if( id < 0 || id >= rkChainLinkNum(ik->chain) ){
     ZRUNERROR( RK_ERR_LINK_INVID, id );
     return false;
   }
@@ -163,21 +156,21 @@ bool rkIKJointRegAll(rkIK *ik, double weight)
 {
   register int i;
 
-  for( i=0; i<rkChainNum(ik->chain); i++ )
+  for( i=0; i<rkChainLinkNum(ik->chain); i++ )
     if( rkChainLinkJointSize(ik->chain,i) > 0 )
       if( !rkIKJointReg( ik, i, weight ) ) return false;
   return true;
 }
 
 /* register constraint cell to inverse kinematics solver. */
-bool _rkIKAllocSRV(rkIK *ik)
+static bool _rkIKAllocSRV(rkIK *ik)
 {
-  if( zListNum(&ik->clist) == 0 ) return true;
+  if( zListSize(&ik->clist) == 0 ) return true;
   zVecFree( ik->_c_srv );
   zVecFree( ik->_c_we );
-  ik->_c_srv = zVecAlloc( zListNum(&ik->clist)*3 );
-  ik->_c_we = zVecAlloc( zListNum(&ik->clist)*3 );
-  ik->__c = zVecAlloc( zListNum(&ik->clist)*3 );
+  ik->_c_srv = zVecAlloc( zListSize(&ik->clist)*3 );
+  ik->_c_we = zVecAlloc( zListSize(&ik->clist)*3 );
+  ik->__c = zVecAlloc( zListSize(&ik->clist)*3 );
   if( !ik->_c_srv || !ik->_c_we || !ik->__c ){
     ZALLOCERROR();
     return false;
@@ -252,14 +245,14 @@ void rkIKAcmZero(rkIK *ik)
 }
 
 /* form the motion rate contraint equation. */
-int _rkIKCellEq(rkIK *ik, rkIKCell *cell, int s, int row)
+static int _rkIKCellEq(rkIK *ik, rkIKCell *cell, int s, int row)
 {
   register int i, j;
 
   if( !( ( RK_IK_CELL_XON << s ) & cell->data.attr.mode ) ) return 0;
   zVecSetElemNC( ik->_c_srv, row, ik->_c_srv_cell.e[s] );
   zVecSetElemNC( ik->_c_we, row, cell->data.attr.w.e[s] );
-  for( i=0; i<rkChainNum(ik->chain); i++ )
+  for( i=0; i<rkChainLinkNum(ik->chain); i++ )
     if( ik->joint_sw[i] ){
       for( j=0; j<rkChainLinkJointSize(ik->chain,i); j++ )
         zMatSetElemNC( ik->_c_mat, row, zIndexElemNC(ik->_j_ofs,i)+j,
@@ -428,14 +421,7 @@ static struct _rkIKLookup{
   { NULL, NULL },
 };
 
-static struct _rkIKLookup *_rkIKLookupCell(char *str);
-static bool _rkIKConfFieldIsTerminated(FILE *fp, char *buf);
-static bool _rkIKConfParseJoint(FILE *fp, char *buf, rkIK *ik);
-static bool _rkIKConfParseConstraint(FILE *fp, char *buf, rkChain *chain, rkIKCellAttr *attr, int *mask);
-static bool __rkIKConfFScan(FILE *fp, void *instance, char *buf, bool *success);
-static bool _rkIKConfFScan(FILE *fp, void *instance, char *buf, bool *success);
-
-struct _rkIKLookup *_rkIKLookupCell(char *str)
+static struct _rkIKLookup *_rkIKLookupCell(char *str)
 {
   struct _rkIKLookup *lookup;
 
@@ -443,131 +429,6 @@ struct _rkIKLookup *_rkIKLookupCell(char *str)
     if( strcmp( str, lookup->str ) == 0 ) return lookup;
   ZRUNERROR( RK_ERR_IK_UNKNOWN, str );
   return NULL;
-}
-
-bool _rkIKConfFieldIsTerminated(FILE *fp, char *buf)
-{
-  long cur;
-  bool ret = false;
-
-  if( !zFSkipDefaultComment( fp ) ) return true;
-  cur = ftell( fp );
-  if( !zFToken( fp, buf, BUFSIZ ) ) return true;
-  if( zTokenIsTag( buf ) ||
-      strcmp( buf, "joint" ) == 0 ||
-      strcmp( buf, "constraint" ) == 0 ){
-    ret = true;
-  }
-  fseek( fp, cur, SEEK_SET );
-  return ret;
-}
-
-bool _rkIKConfParseJoint(FILE *fp, char *buf, rkIK *ik)
-{
-  rkLink *l;
-  double w = RK_IK_JOINT_WEIGHT_DEFAULT;
-
-  zFToken( fp, buf, BUFSIZ );
-  if( strcmp( buf, "all" ) == 0 ){
-    if( !_rkIKConfFieldIsTerminated( fp, buf ) )
-      w = zFDouble( fp );
-    return rkIKJointRegAll( ik, w );
-  }
-  zNameFind( rkChainRoot(ik->chain), rkChainNum(ik->chain), buf, l );
-  if( !l ){
-    ZRUNERROR( RK_ERR_LINK_UNKNOWN, buf );
-    return false;
-  }
-  if( !_rkIKConfFieldIsTerminated( fp, buf ) )
-    w = zFDouble( fp );
-  if( w == 0 ){
-    rkJointQueryFScan( fp, "dis", rkLinkJoint(l), NULL, 0 );
-    return true;
-  } else
-    return rkLinkJointSize(l) > 0 ? rkIKJointReg( ik, l - rkChainRoot(ik->chain), w ) : false;
-}
-
-bool _rkIKConfParseConstraint(FILE *fp, char *buf, rkChain *chain, rkIKCellAttr *attr, int *mask)
-{
-  rkLink *l;
-  int linknum = 0;
-
-  *mask = RK_IK_CELL_ATTR_NONE;
-  while( !_rkIKConfFieldIsTerminated( fp, buf ) ){
-    zFToken( fp, buf, BUFSIZ );
-    if( strcmp( buf, "at" ) == 0 ){
-      zVec3DFScan( fp, &attr->ap );
-      *mask |= RK_IK_CELL_ATTR_AP;
-    } else
-    if( strcmp( buf, "w" ) == 0 ){
-      zVec3DFScan( fp, &attr->w );
-      *mask |= RK_IK_CELL_ATTR_WEIGHT;
-    } else
-    if( strcmp( buf, "f" ) == 0 ){
-      *mask |= RK_IK_CELL_ATTR_FORCE;
-    } else{
-      zNameFind( rkChainRoot(chain), rkChainNum(chain), buf, l );
-      if( !l ){
-        ZRUNERROR( RK_ERR_LINK_UNKNOWN, buf );
-        return false;
-      }
-      if( linknum++ == 0 ){
-        attr->id = l - rkChainRoot(chain);
-        *mask |= RK_IK_CELL_ATTR_ID;
-      } else{
-        attr->id_sub = l - rkChainRoot(chain);
-        *mask |= RK_IK_CELL_ATTR_ID_SUB;
-      }
-    }
-  }
-  return true;
-}
-
-bool __rkIKConfFScan(FILE *fp, void *instance, char *buf, bool *success)
-{
-  rkIKCellAttr attr;
-  int mask;
-  struct _rkIKLookup *lookup;
-
-  if( strcmp( buf, "joint" ) == 0 )
-    return _rkIKConfParseJoint( fp, buf, instance );
-  if( strcmp( buf, "constraint" ) == 0 ){
-    zFToken( fp, buf, BUFSIZ );
-    if( !( lookup = _rkIKLookupCell( buf ) ) ) return false;
-    _rkIKConfParseConstraint( fp, buf, ((rkIK *)instance)->chain, &attr, &mask );
-    return lookup->ik_cell_reg( instance, &attr, mask ) ? true : false;
-  }
-  return false;
-}
-
-bool _rkIKConfFScan(FILE *fp, void *instance, char *buf, bool *success)
-{
-  if( strcmp( buf, "ik" ) == 0 )
-    return zFieldFScan( fp, __rkIKConfFScan, instance );
-  return true;
-}
-
-/* scan information of IK configuration from a file. */
-bool rkIKConfFScan(FILE *fp, rkIK *ik, rkChain *chain)
-{
-  if( !rkIKCreate( ik, chain ) ) return false;
-  rewind( fp );
-  return zTagFScan( fp, _rkIKConfFScan, ik );
-}
-
-/* scan information of IK configuration from a file. */
-bool rkIKConfScanFile(rkIK *ik, rkChain *chain, char *filename)
-{
-  FILE *fp;
-  bool result;
-
-  if( !( fp = zOpenZTKFile( filename, "r" ) ) ){
-    ZOPENERROR( filename );
-    return false;
-  }
-  result = rkIKConfFScan( fp, ik, chain );
-  fclose( fp );
-  return result;
 }
 
 /* ZTK */
@@ -642,7 +503,7 @@ static ZTKPrp __ztk_prp_rkik[] = {
 
 static void *_rkIKFromZTK(void *obj, int i, void *arg, ZTK *ztk)
 {
-  if( !ZTKEncodeKey( obj, NULL, ztk, __ztk_prp_rkik ) ) return NULL;
+  if( !ZTKEvalKey( obj, NULL, ztk, __ztk_prp_rkik ) ) return NULL;
   return obj;
 }
 
@@ -652,19 +513,19 @@ static ZTKPrp __ztk_prp_tag_rkik[] = {
 
 rkIK *rkIKConfFromZTK(rkIK *ik, ZTK *ztk)
 {
-  ZTKEncodeTag( ik, NULL, ztk, __ztk_prp_tag_rkik );
+  ZTKEvalTag( ik, NULL, ztk, __ztk_prp_tag_rkik );
   return ik;
 }
 
-rkIK *rkIKConfScanZTK(rkIK *ik, rkChain *chain, char filename[])
+rkIK *rkIKConfReadZTK(rkIK *ik, rkChain *chain, char filename[])
 {
   ZTK ztk;
 
   if( !rkIKCreate( ik, chain ) ) return NULL;
   ZTKInit( &ztk );
   if( !ZTKDefRegPrp( &ztk, ZTK_TAG_RKIK, __ztk_prp_rkik ) ) return NULL;
-  ZTKParse( &ztk, filename );
-  ik = rkIKConfFromZTK( ik, &ztk );
+  if( ZTKParse( &ztk, filename ) )
+    ik = rkIKConfFromZTK( ik, &ztk );
   ZTKDestroy( &ztk );
   return ik;
 }

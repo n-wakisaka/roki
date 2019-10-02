@@ -61,7 +61,7 @@ void rkChainABIAlloc(rkChain *chain)
 {
   register int i;
 
-  for( i=0; i<rkChainNum(chain); i++ )
+  for( i=0; i<rkChainLinkNum(chain); i++ )
     rkLinkABIAlloc( rkChainLink(chain,i) );
 }
 
@@ -78,7 +78,7 @@ void rkChainABIDestroy(rkChain *chain)
 {
   register int i;
 
-  for( i=0; i<rkChainNum(chain); i++ )
+  for( i=0; i<rkChainLinkNum(chain); i++ )
     rkLinkABIDestroy( rkChainLink(chain,i) );
 }
 
@@ -123,7 +123,7 @@ void rkChainABIUpdateInit(rkChain *chain)
 {
   register int i;
 
-  for( i=0; i<rkChainNum(chain); i++ ){
+  for( i=0; i<rkChainLinkNum(chain); i++ ){
     if( rkChainLinkParent(chain,i) == NULL )
       rkLinkABIUpdateInit( rkChainLink(chain,i), ZVEC6DZERO );
     else
@@ -136,7 +136,7 @@ void _rkLinkABIAddBias(rkLink *link)
 {
   zVec6D icb;
 
-  /* IH (HIH)-1 (u - H^T (Ic + b)) */
+  /* IH (HIH)^-1 (u - H^T (Ic + b)) */
   zMulMat6DVec6D( &rkLinkABIPrp(link)->i, &rkLinkABIPrp(link)->c, &icb );
   zVec6DAddDRC( &icb, &rkLinkABIPrp(link)->b );
   rkJointABIAddBias( rkLinkJoint(link), &rkLinkABIPrp(link)->i, &icb, rkLinkAdjFrame(link), rkLinkABIPrp(link)->iaxi, &rkLinkABIPrp(rkLinkParent(link))->b );
@@ -156,7 +156,7 @@ void _rkLinkABIUpdateBackward(rkLink *link)
   if( !rkLinkParent(link) ) return;
 
   /* add ABI and bias acceleration to parent prp */
-  rkJointABIAddAbi( rkLinkJoint(link), &ap->i, rkLinkAdjFrame( link ), ap->iaxi, &rkLinkABIPrp(rkLinkParent(link))->i );
+  rkJointABIAddABI( rkLinkJoint(link), &ap->i, rkLinkAdjFrame( link ), ap->iaxi, &rkLinkABIPrp(rkLinkParent(link))->i );
   rkJointABIDrivingTorque( rkLinkJoint(link) );
   _rkLinkABIAddBias( link );
 }
@@ -178,25 +178,14 @@ void _rkLinkABIUpdateForward(rkLink *link, zVec6D *pa)
 {
   rkABIPrp *ap;
   zVec6D jac;
-  zMat3D att;
 
   ap = rkLinkABIPrp(link);
   /*J^Ta+c*/
-  zVec3DOuterProd( zVec6DAng( pa ), rkLinkAdjPos( link ), zVec6DLin( &jac ) );
-  zVec3DAddDRC( zVec6DLin( &jac ), zVec6DLin( pa ) );
-  zVec3DCopy( zVec6DAng( pa ), zVec6DAng( &jac ) );
-  zMulMat3DTVec6DDRC( rkLinkAdjAtt( link ), &jac );
-
+  zVec6DLinShift( pa, rkLinkAdjPos(link), &jac );
+  zMulMat3DTVec6DDRC( rkLinkAdjAtt(link), &jac );
   zVec6DAddDRC( &jac, &ap->c );
-
   /* update acceleration */
-  if( rkLinkJoint(link)->com == &rk_joint_spher ||
-      rkLinkJoint(link)->com == &rk_joint_float ||
-      rkLinkJoint(link)->com == &rk_joint_brfloat ){
-    zMulMat3DTMat3D(rkLinkOrgAtt(link), rkLinkAdjAtt(link), &att);
-    rkJointABIQAcc( rkLinkJoint(link), &att, &ap->i, &ap->b, &jac, ap->iaxi, rkLinkAcc(link) );
-  } else
-    rkJointABIQAcc( rkLinkJoint(link), NULL, &ap->i, &ap->b, &jac, ap->iaxi, rkLinkAcc(link) );
+  rkJointABIQAcc( rkLinkJoint(link), &ap->i, &ap->b, &jac, ap->iaxi, rkLinkAcc(link) );
 }
 
 /* forward computation to update acceleration from ABI of a link. */
@@ -204,7 +193,7 @@ void rkLinkABIUpdateForward(rkLink *link, zVec6D *pa)
 {
   _rkLinkABIUpdateForward( link, pa );
 
-  /* recursive forward computation of ABI */
+  /* forward recursive computation of ABI */
   if( rkLinkSibl(link) )
     rkLinkABIUpdateForward( rkLinkSibl(link), pa );
   if( rkLinkChild(link) )
@@ -218,7 +207,7 @@ void rkLinkABIUpdateForwardGetWrench(rkLink *link, zVec6D *pa)
   /* link wrench */
   rkJointUpdateWrench( rkLinkJoint(link), &rkLinkABIPrp(link)->i, &rkLinkABIPrp(link)->b, rkLinkAcc(link) );
 
-  /* recursive forward computation of ABI */
+  /* forward recursive computation of ABI */
   if( rkLinkSibl(link) )
     rkLinkABIUpdateForwardGetWrench( rkLinkSibl(link), pa );
   if( rkLinkChild(link) )
@@ -230,7 +219,7 @@ void _rkChainZeroLinkRate(rkChain *chain)
 {
   register int i;
 
-  for( i=0; i<rkChainNum(chain); i++ )
+  for( i=0; i<rkChainLinkNum(chain); i++ )
     rkLinkZeroRate( rkChainLink(chain,i) );
 }
 
@@ -328,7 +317,7 @@ void _rkChainABIUpdateBackwardAddExForce(rkChain *chain)
 {
   register int i;
 
-  for( i=0; i<rkChainNum(chain); i++ )
+  for( i=0; i<rkChainLinkNum(chain); i++ )
     rkLinkABIPrp(rkChainLink(chain,i))->abi_backward_path = false;
   _rkLinkABIFindBackwardPathAddExForce( rkChainRoot(chain) );
   _rkLinkABIUpdateBackwardAddExForce( rkChainRoot(chain) );
@@ -365,7 +354,7 @@ void rkChainABIPushPrpAccBias(rkChain *chain)
 {
   register int i;
 
-  for( i=0; i<rkChainNum(chain); i++ ){
+  for( i=0; i<rkChainLinkNum(chain); i++ ){
     zVec6DCopy( &rkLinkABIPrp(rkChainLink(chain,i))->b, &rkLinkABIPrp(rkChainLink(chain,i))->b0 );
     zVec6DCopy( rkChainLinkAcc(chain,i), &rkLinkABIPrp(rkChainLink(chain,i))->a0 );
   }
@@ -375,7 +364,7 @@ void rkChainABIPopPrpAccBias(rkChain *chain)
 {
   register int i;
 
-  for( i=0; i<rkChainNum(chain); i++ ){
+  for( i=0; i<rkChainLinkNum(chain); i++ ){
     zVec6DCopy( &rkLinkABIPrp(rkChainLink(chain,i))->b0, &rkLinkABIPrp(rkChainLink(chain,i))->b );
     zVec6DCopy( &rkLinkABIPrp(rkChainLink(chain,i))->a0, rkLinkAcc(rkChainLink(chain,i)) );
   }
@@ -387,7 +376,7 @@ void rkChainABIPopPrpAccBiasAddExForceTwo(rkChain *chain, rkLink *link, rkLink *
 
   if( link )  zVec6DCopy( &rkLinkABIPrp(link)->b0, &rkLinkABIPrp(link)->b );
   if( link2 ) zVec6DCopy( &rkLinkABIPrp(link2)->b0, &rkLinkABIPrp(link2)->b );
-  for( i=0; i<rkChainNum(chain); i++ ){
+  for( i=0; i<rkChainLinkNum(chain); i++ ){
     zVec6DCopy( &rkLinkABIPrp(rkChainLink(chain,i))->a0, rkLinkAcc(rkChainLink(chain,i)) );
     if( rkLinkABIPrp(rkChainLink(chain,i))->abi_backward_path )
       zVec6DCopy( &rkLinkABIPrp(rkChainLink(chain,i))->b0, &rkLinkABIPrp(rkChainLink(chain,i))->b );
@@ -406,7 +395,7 @@ void _rkChainABIUpdateBackwardAddExForceTwo(rkChain *chain, rkLink *link, rkWren
 {
   register int i;
 
-  for( i=0; i<rkChainNum(chain); i++ )
+  for( i=0; i<rkChainLinkNum(chain); i++ )
     rkLinkABIPrp(rkChainLink(chain,i))->abi_backward_path = false;
   if( link && w ){
     _rkLinkABIFindBackwardPathAddExForceOne( chain, link );

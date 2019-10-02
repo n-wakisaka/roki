@@ -78,15 +78,15 @@ typedef struct{
   void (*_addabi)(void*,zMat6D*,zFrame3D*,zMat,zMat6D*);
   void (*_addbias)(void*,zMat6D*,zVec6D*,zFrame3D*,zMat,zVec6D*);
   void (*_dtrq)(void*);
-  void (*_qacc)(void*,zMat3D*,zMat6D*,zVec6D*,zVec6D*,zMat,zVec6D*);
+  void (*_qacc)(void*,zMat6D*,zVec6D*,zVec6D*,zMat,zVec6D*);
   void (*_wrench)(struct _rkJoint*,zMat6D*,zVec6D*,zVec6D*);
 
   /* I/O */
-  bool (*_query)(FILE*,char*,void*,rkMotor*,int);  /* query */
+  bool (*_regZTK)(ZTK*,char*);
   void *(*_dis_fromZTK)(void*,int,void*,ZTK*);
   void *(*_fromZTK)(void*,rkMotorArray*,ZTK*);
-  void (*_dis_fprint)(FILE*,int,void*);
-  void (*_fprint)(FILE*,void*,char*);  /* print */
+  void (*_dis_fprintZTK)(FILE*,int,void*);
+  void (*_fprintZTK)(FILE*,void*,char*);  /* print */
 } rkJointCom;
 
 typedef struct _rkJoint{
@@ -99,22 +99,10 @@ typedef struct _rkJoint{
 #define rkJointTypeStr(j)  (j)->com->typestr
 #define rkJointWrench(j)   &(j)->wrench
 
-/*! \brief initialize, create and destroy a joint object.
+/*! \brief initialize a joint object.
  *
  * rkJointInit() initializes a joint object \a j, cleaning
  * up all properties.
- *
- * rkJointCreate() creates \a j.
- * \a type is a joint type to be chosen from the followings.
- *  RK_JOINT_FIXED for fixed joint
- *  RK_JOINT_REVOL for revolutional joint
- *  RK_JOINT_PRISM for prismatic joint
- *  RK_JOINT_CYLIN for cylindric joint
- *  RK_JOINT_HOOKE for universal joint
- *  RK_JOINT_SPHER for spherical joint
- *  RK_JOINT_FLOAT for free-floating joint
- * The internal storage for joint properties is allocated
- * according to the above joint types.
  * \return
  * rkJointInit() returns a pointer \a j if it succeeds.
  * If \a type is invalid, or it fails to allocate the internal
@@ -178,18 +166,18 @@ __EXPORT rkJoint *rkJointCopyState(rkJoint *src, rkJoint *dst);
 
 /* motor */
 #define rkJointGetMotor(j)          (j)->com->_getmotor( (j)->prp )
-#define rkJointMotorSetInput(j,i)   (j)->com->_setinput( (j)->prp, i )
-#define rkJointMotorInertia(j,i)    (j)->com->_inertia( (j)->prp, i )
-#define rkJointMotorInputTrq(j,t)   (j)->com->_inputtrq( (j)->prp, t )
-#define rkJointMotorRegistance(j,r) (j)->com->_regist( (j)->prp, r )
-#define rkJointMotorDrivingTrq(j,t) (j)->com->_dtrq( (j)->prp, t )
+#define rkJointMotorSetInput(j,i)   (j)->com->_setmotorinput( (j)->prp, i )
+#define rkJointMotorInertia(j,i)    (j)->com->_motorinertia( (j)->prp, i )
+#define rkJointMotorInputTrq(j,t)   (j)->com->_motorinputtrq( (j)->prp, t )
+#define rkJointMotorRegistance(j,r) (j)->com->_motorregist( (j)->prp, r )
+#define rkJointMotorDrivingTrq(j,t) (j)->com->_motordestrq( (j)->prp, t )
 
 /* ABI */
 #define rkJointABIAxisInertia(j,m,h,ih) (j)->com->_axinertia( (j)->prp, m, h, ih )
-#define rkJointABIAddAbi(j,i,f,h,pi)    (j)->com->_addabi( (j)->prp, i, f, h, pi )
+#define rkJointABIAddABI(j,i,f,h,pi)    (j)->com->_addabi( (j)->prp, i, f, h, pi )
 #define rkJointABIAddBias(j,i,b,f,h,pb) (j)->com->_addbias( (j)->prp, i, b, f, h, pb )
 #define rkJointABIDrivingTorque(j)      (j)->com->_dtrq( (j)->prp )
-#define rkJointABIQAcc(j,r,i,b,c,h,a)   (j)->com->_qacc( (j)->prp, r, i, b, c, h, a )
+#define rkJointABIQAcc(j,i,b,c,h,a)     (j)->com->_qacc( (j)->prp, i, b, c, h, a )
 #define rkJointUpdateWrench(j,i,b,a)    (j)->com->_wrench( j, i, b, a )
 
 /*! \brief neutral configuration of joint.
@@ -277,8 +265,8 @@ __EXPORT void rkJointIncRate(rkJoint *j, zVec3D *w, zVec6D *vel, zVec6D *acc);
 __EXPORT zVec3D *_rkJointAxisNull(void *prp, zFrame3D *f, zVec3D *a);
 __EXPORT zVec3D *_rkJointAxisZ(void *prp, zFrame3D *f, zVec3D *a);
 
-__EXPORT double rkJointTorsionDisRevol(zFrame3D *dev, zVec6D *t);
-__EXPORT double rkJointTorsionDisPrism(zFrame3D *dev, zVec6D *t);
+__EXPORT double rkJointRevolTorsionDis(zFrame3D *dev, zVec6D *t);
+__EXPORT double rkJointPrismTorsionDis(zFrame3D *dev, zVec6D *t);
 
 /* NOTE: The following macros and functions are for sharing
  * some operation codes. Do not use them in users programs. */
@@ -290,52 +278,37 @@ __EXPORT void _rkJointUpdateWrench(rkJoint *j, zMat6D *i, zVec6D *b, zVec6D *acc
 
 /*! \brief scan and print out joint displacement and properties.
  *
- * rkJointQueryFScan() scans joint properties of \a j identified
- * by a string \a key from the current position of a file \a fp.
- *
  * The candidates of \a key are listed as follows:
  *  "jointtype" for joint type. Refer rkJointTypeByStr().
  *  "dis" for the initial joint displacement.
  *  "min" for the minimum joint displacement.
  *  "max" for the maximum joint displacement.
  *  "stiffness" for the joint stiffness.
- *  "viscos" for the joint viscosity.
- *  "coulomb" for Coulomb s joint friction.
+ *  "viscosity" for the joint viscosity.
+ *  "coulomb" for Coulomb's joint friction.
+ *  "staticfriction" for static joint friction.
  * The number of components of each property is according to the
  * joint type, and hence, the joint type has to be identified
  * first of all.
  *
- * Values are internally held in meter for linear displacements
- * or in radian for angular displacements. Angular displacements
- * are converted to values in degree when denoted in files for
- * easier estimation. These functions automatically choose the
- * input and output unit for each value according to the joint
- * type of \a j.
- * Examples: For \a j as a cylindric joint, two values are
- * denoted in [m] and [deg] when values are displacements, or
- * in [N/m] and [N.m/deg] when values are stiffnesses.
- *
- * rkJointFPrint() prints the joint properties out to a file
+ * rkJointFPrintZTK() prints the joint properties out to a file
  * \a fp in accordance with the above rule. The field "dis" is
  * output only when any components of the joint displacement
  * are non-zero values.
  * \a name is used instead of the key "dis", unless it is the
  * null pointer.
  * \return
- * rkJointQueryFScan() returns the true value when \a key is
- * valid, or the false value otherwise.
- *
- * rkJointFPrint() and rkJointPrint() return no value.
+ * rkJointFPrintZTK() returns no value.
  */
-#define rkJointQueryFScan(f,b,j,ma,mn) (j)->com->_query( f, b, (j)->prp, (ma), (mn) )
 
-#define rkJointFPrint(f,j,n) ( (n) ? (j)->com->_fprint( f, (j)->prp, n ) : (j)->com->_fprint( f, (j)->prp, "dis" ) )
-#define rkJointPrint(j,n)    rkJointFPrint( stdout, j, n )
+#define rkJointPrpFromZTK(prp,motorarray,ztk,ztkprp) \
+  ( ZTKEvalKey( prp, motorarray, ztk, ztkprp ) ? prp : NULL )
 
-#define rkJointPrpFromZTK(prp, motorarray, ztk, ztkprp) \
-  ( ZTKEncodeKey( prp, motorarray, ztk, ztkprp ) ? prp : NULL )
+__EXPORT bool rkJointRegZTK(ZTK *ztk, char *tag);
 
 __EXPORT rkJoint *rkJointFromZTK(rkJoint *joint, rkMotorArray *motorarray, ZTK *ztk);
+
+#define rkJointFPrintZTK(f,j,n) ( (n) ? (j)->com->_fprintZTK( f, (j)->prp, n ) : (j)->com->_fprintZTK( f, (j)->prp, "dis" ) )
 
 __END_DECLS
 
@@ -347,5 +320,23 @@ __END_DECLS
 #include <roki/rk_joint_spher.h>   /* spherical joint */
 #include <roki/rk_joint_float.h>   /* free-floating joint */
 #include <roki/rk_joint_brfloat.h> /* breakable free-floating joint */
+
+__BEGIN_DECLS
+
+/* add the handle to the following list when you create a new joint class. */
+#define RK_JOINT_COM_ARRAY \
+rkJointCom *_rk_joint_com[] = {\
+  &rk_joint_fixed,\
+  &rk_joint_revol,\
+  &rk_joint_prism,\
+  &rk_joint_cylin,\
+  &rk_joint_hooke,\
+  &rk_joint_spher,\
+  &rk_joint_float,\
+  &rk_joint_brfloat,\
+  NULL,\
+}
+
+__END_DECLS
 
 #endif /* __RK_JOINT_H__ */

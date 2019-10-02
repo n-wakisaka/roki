@@ -85,11 +85,11 @@ FILE *rk_fkCommandArgs(int argc, char *argv[])
     option[RK_FK_SEQFILE].arg  = seqfile;
   }
 
-  if( !rkChainScanFile( &chain, option[RK_FK_CHAINFILE].arg ) ){
+  if( !rkChainReadZTK( &chain, option[RK_FK_CHAINFILE].arg ) ){
     ZOPENERROR( option[RK_FK_CHAINFILE].arg );
     return NULL;
   }
-  zNameFind( rkChainRoot(&chain), rkChainNum(&chain), option[RK_FK_LINKNAME].arg, link );
+  zNameFind( rkChainRoot(&chain), rkChainLinkNum(&chain), option[RK_FK_LINKNAME].arg, link );
   if( !link ){
     ZRUNERROR( "unknown link name %s", option[RK_FK_LINKNAME].arg );
     return NULL;
@@ -97,7 +97,7 @@ FILE *rk_fkCommandArgs(int argc, char *argv[])
   if( !rk_fkLoadSequence() ||
       !( fp = rk_fkOpenLogfile( option[RK_FK_LINKNAME].arg ) ) ) return NULL;
   if( option[RK_FK_INITFILE].flag &&
-      !rkChainInitScanFile( &chain, option[RK_FK_INITFILE].arg ) ){
+      !rkChainInitReadZTK( &chain, option[RK_FK_INITFILE].arg ) ){
     ZOPENERROR( option[RK_FK_INITFILE].arg );
     return NULL;
   }
@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
 
   rkChainFK( &chain, zListHead(&seq)->data.v );
   zListForEachRew( &seq, cp ){
-    printf( "step %d/%d\n", i, zListNum(&seq)-1 );
+    printf( "step %d/%d\n", i, zListSize(&seq)-1 );
     rkChainFK( &chain, cp->data.v );
     rk_fkOutput( fp, t );
     i++;

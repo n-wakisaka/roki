@@ -31,9 +31,9 @@ typedef struct{
   void (* _regist)(void*,double*,double*,double*); /*!< \brief registance torque (e.g. counter electromotive) */
   void (* _dtrq)(void*,double*,double*,double*,double*); /*!< \brief driving torque */
 
-  bool (* _query)(FILE*,char*,void*);
+  bool (* _regZTK)(ZTK*,char*);
   void *(* _fromZTK)(void*,ZTK*);
-  void (* _fprint)(FILE*,void*);
+  void (* _fprintZTK)(FILE*,void*);
 } rkMotorCom;
 
 typedef struct{
@@ -67,9 +67,7 @@ __EXPORT rkMotor *rkMotorClone(rkMotor *org, rkMotor *cln);
 __EXPORT bool rkMotorRegZTK(ZTK *ztk);
 __EXPORT rkMotor *rkMotorFromZTK(rkMotor *motor, ZTK *ztk);
 
-#define rkMotorQueryFScan(f,k,m)       (m)->com->_query( f, k, (m)->prp )
-__EXPORT void rkMotorFPrint(FILE *fp, rkMotor *m);
-#define rkMotorPrint(m)                rkMotorFPrint( stdout, m )
+__EXPORT void rkMotorFPrintZTK(FILE *fp, rkMotor *m);
 
 /* ********************************************************** */
 /*! \struct rkMotorArray
@@ -83,13 +81,25 @@ __EXPORT rkMotorArray *rkMotorArrayClone(rkMotorArray *org);
 
 __EXPORT rkMotor *rkMotorArrayFind(rkMotorArray *marray, char *name);
 
-__EXPORT rkMotorArray *rkMotorArrayFScan(FILE *fp, rkMotorArray *m);
-__EXPORT void rkMotorArrayFPrint(FILE *fp, rkMotorArray *m);
+__EXPORT void rkMotorArrayFPrintZTK(FILE *fp, rkMotorArray *m);
 
 __END_DECLS
 
 #include <roki/rk_motor_none.h> /* for unactuated joints */
 #include <roki/rk_motor_trq.h>  /* direct torque motor */
 #include <roki/rk_motor_dc.h>   /* DC motor */
+
+__BEGIN_DECLS
+
+/* add the handle to the following list when you create a new motor class. */
+#define RK_MOTOR_COM_ARRAY \
+rkMotorCom *_rk_motor_com[] = {\
+  &rk_motor_none,\
+  &rk_motor_dc,\
+  &rk_motor_trq,\
+  NULL,\
+}
+
+__END_DECLS
 
 #endif /* __RK_MOTOR_H__ */
